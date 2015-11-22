@@ -1,0 +1,10 @@
+matplotlib
+numpy
+pip install matplotlib
+pip install numpy
+pip install pandas
+pip install shapely
+pip install basemap --allow-external basemap --allow-unverified basemap 
+pip install scipy
+ipython
+jupyter
