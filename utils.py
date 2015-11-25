@@ -212,22 +212,6 @@ def load_data(fname, drifter_type, launch_datetime='2012-06-01 00:00:00', end_da
             md['num'].append(int(line_vals[1]))
             md['bat'].append(bvalue)
             
-            # set the data vals to empty so that we can append
-            if do_return:
-                # last few samples seem to be bad
-                cl['calsx'].append(calsx)
-                cl['calsy'].append(calsy)
-                cl['calsz'].append(calsz)
-                cl['temp'].append(ctemp)
-                cl['cal_start_datetime'].append(Cdf)
-                cl['bat'].append(cbvalue)
-                cl['lat'].append(clat)
-                cl['lon'].append(clon)
-                cl['id'].append(Cid)
-                calsx = [0]*nsams
-                calsy = [0]*nsams
-                calsz = [0]*nsams
-                do_return = False
             
         if line_vals[0] == 'C':
             # The date reported here is always the start time of the sample period
@@ -245,32 +229,25 @@ def load_data(fname, drifter_type, launch_datetime='2012-06-01 00:00:00', end_da
             # offset the time with the measurement frequency
             # the first few and last few of this cal value seem to be bad
             C_count = int(line_vals[1])
-            if C_count-1 < nsams:
-                cdt = Cdf + timedelta(0, C_count)
-                x, y, z, f = get_xyz(line_vals[2:5], drifter_type)
-                ctemp = float(line_vals[5])
-                cd["sample_datetime"].append(cdt)
-                cd['x'].append(x)
-                cd['y'].append(y)
-                cd['z'].append(z)
+      
+            cdt = Cdf + timedelta(0, C_count)
+            x, y, z, f = get_xyz(line_vals[2:5], drifter_type)
+            ctemp = float(line_vals[5])
+            cd["sample_datetime"].append(cdt)
+            cd['x'].append(x)
+            cd['y'].append(y)
+            cd['z'].append(z)
 
-                cd['temp'].append(ctemp)
-                cd['num'].append(C_count)
-                cd['cal_start_datetime'].append(Cdf)
-                cd['bat'].append(bvalue)
-                cd['lat'].append(S_lat)
-                cd['lon'].append(S_lon)
-                cd['id'].append(Cid)
-                cd['f'].append(f)
+            cd['temp'].append(ctemp)
+            cd['num'].append(C_count)
+            cd['cal_start_datetime'].append(Cdf)
+            cd['bat'].append(bvalue)
+            cd['lat'].append(S_lat)
+            cd['lon'].append(S_lon)
+            cd['id'].append(Cid)
+            cd['f'].append(f)
 
-                calsx[C_count-1] = x
-                calsy[C_count-1] = y
-                calsz[C_count-1] = z
-
-                cbvalue = bvalue
-                clat = S_lat
-                clon = S_lon
-                do_return = True
+        
 
         if line_vals[0] == 'E':
             # E:
@@ -385,7 +362,7 @@ def get_buoy_data(buoypd, datetimes, lats, lons):
     return data
         
 def parse_raw_files(drifter_data_dir, drifter_dict):
-    """parse raw drifter files into provided dictionary and write to meas/cal/list files
+    """parse raw drifter files into provided dictionary and write to meas/cal/list files. This function is really slow, but only needs to be called once to write the parsed files.
     :param drifter_data_dir: relative path where meas/cal/list_name.txt files are stored
     :param drifter_dict: dictionary with names of drifter (ie sleepy) as key
     """
@@ -429,14 +406,14 @@ def parse_txt_files(drifter_data_dir, drifter_dict):
     for dname in drifter_dict.keys():
         print("Loading %s meas, cal, and list data files" %dname)
         mpath = os.path.join(drifter_data_dir, 'meas_' + dname + '.txt')
-        mpd = pd.read_csv(mpath, header=0, sep=' ', parse_dates=0, index_col=0)
+        mpd = pd.read_csv(mpath, header=0, sep=' ', parse_dates=0, index_col=0, low_memory=False)
         drifter_dict[dname]['meas'] = mpd
         
         cpath = os.path.join(drifter_data_dir, 'cal_' + dname + '.txt')
-        cpd = pd.read_csv(cpath, header=0, sep=' ', parse_dates=0, index_col=0)
+        cpd = pd.read_csv(cpath, header=0, sep=' ', parse_dates=0, index_col=0, low_memory=False)
         drifter_dict[dname]['cal'] = cpd
         
         lpath = os.path.join(drifter_data_dir, 'list_' + dname + '.txt')
-        lpd = pd.read_csv(lpath, header=0, sep=' ', parse_dates=0, index_col=0)
+        lpd = pd.read_csv(lpath, header=0, sep=' ', parse_dates=0, index_col=0, low_memory=False)
         drifter_dict[dname]['list'] = lpd
     return drifter_dict
