@@ -247,8 +247,6 @@ def load_data(fname, drifter_type, launch_datetime='2012-06-01 00:00:00', end_da
             cd['id'].append(Cid)
             cd['f'].append(f)
 
-        
-
         if line_vals[0] == 'E':
             # E:
             # E 12.7 0
@@ -277,18 +275,7 @@ def load_data(fname, drifter_type, launch_datetime='2012-06-01 00:00:00', end_da
     mpd = mpd[mpd['lat'] != -90.0]
     mpd = mpd[mpd['lat'] != 0.0]
     
-    
-    lpd = pd.DataFrame.from_dict(cl, orient='columns')
-    lpd = lpd.set_index('cal_start_datetime', drop=False)
-    # ignore data before june 1, this will need to be tailored for each drifter
-    lpd = lpd[lpd.index > pd.to_datetime(launch_datetime)]
-    lpd = lpd[lpd.index < pd.to_datetime(end_datetime)]
-    
-    lpd = lpd[lpd['bat'] > min_bat]
-    #remove bad latitude data
-    lpd = lpd[lpd['lat'] != -90.0]
-    lpd = lpd[lpd['lat'] != 0.0]
-    return mpd, cpd, lpd
+    return mpd, cpd
 
 def get_model(dt, lats, lons):
     alt = 0
@@ -296,15 +283,35 @@ def get_model(dt, lats, lons):
     isv = 0
     # set itype to 1 (geodectic)
     itype = 1
-    
-    simtime = dt[:10] + 'T' + dt[11:]
-        
-    mx,my,mz,mf,yeardec = runigrf12(simtime, isv, itype, [alt], lats, lons)
-    return mx, my, mz, mf[0], yeardec
+    mx,my,mz,mf,yeardec = runigrf12(dt, isv, itype, [alt], lats, lons)
+    return mx[0], my[0], mz[0], mf[0], yeardec
+
+def get_model_df(df):
+    xs = []
+    ys = []
+    zs = []
+    fs = []    
+    alt = 0
+    # set isv to 0 (main field) because that is what it is in example ??
+    isv = 0
+    # set itype to 1 (geodectic)
+    itype = 1
+    for i in df.index:
+        x,y,z,f,yr = mx,my,mz,mf,yeardec = runigrf12(i, isv, itype, alt, 
+                                                     df.loc[i,'lat'], df.loc[i,'lon'])
+        xs.append(x[0])
+        ys.append(y[0])
+        zs.append(z[0])
+        fs.append(f[0])
+    df.loc[:,'igrfx'] = xs
+    df.loc[:,'igrfy'] = ys
+    df.loc[:,'igrfz'] = zs
+    df.loc[:,'igrff'] = fs
+    return df
 
 def to_total_field(x, y, z):
     """convert to total magnetic field"""
-    return (x**2 + y**2 + z**2)**.5
+    return np.sqrt(x**2 + y**2 + z**2)
 
 def fix_hmr(d):
     k = np.sign(d)
@@ -372,16 +379,15 @@ def parse_raw_files(drifter_data_dir, drifter_dict):
         print("Loading %s and writing measured and calibration data files" %dname)
         drifter_type = drifter_dict[dname]['type']
         mpd, cpd, lpd = load_data(dpath, drifter_type, drifter_dict[dname]['launch'], drifter_dict[dname]['end'])
-        
-        mpd['igrfx'], mpd['igrfy'], mpd['igrfz'], mpd['igrff'], yd = get_model(drifter_dict[dname]['launch'], mpd['lat'], mpd['lon'])
+        mpd = get_model_df(mpd)
         bpd = get_buoy_data(buoypd, mpd.index, mpd['lat'], mpd['lon'])
         # join buoy data with drifter data
         mbpd = pd.merge(mpd, bpd, left_index=True, right_index=True)
         mpath = os.path.join(drifter_data_dir, 'meas_' + dname + '.txt')
         mbpd.to_csv(mpath, header=True, sep=' ', index=True)
         drifter_dict[dname]['meas'] = mbpd
-
-        cpd['igrfx'], cpd['igrfy'], cpd['igrfz'], cpd['igrff'], yd = get_model(drifter_dict[dname]['launch'], cpd['lat'], cpd['lon'])
+        
+        cpd = get_model_df(cpd)
         bpd = get_buoy_data(buoypd, cpd.index, cpd['lat'], cpd['lon'])
         # join buoy data with drifter data
         cbpd = pd.merge(cpd, bpd, left_index=True, right_index=True)
@@ -389,13 +395,6 @@ def parse_raw_files(drifter_data_dir, drifter_dict):
         cbpd.to_csv(cpath, header=True, sep=' ', index=True)
         drifter_dict[dname]['cal'] = cbpd
 
-        lpd['igrfx'], lpd['igrfy'], lpd['igrfz'], lpd['igrff'], yd = get_model(drifter_dict[dname]['launch'], lpd['lat'], lpd['lon'])
-        bpd = get_buoy_data(buoypd, lpd.index, lpd['lat'], lpd['lon'])
-        # join buoy data with drifter data
-        lbpd = pd.merge(lpd, bpd, left_index=True, right_index=True)
-        lpath = os.path.join(drifter_data_dir, 'list_' + dname + '.txt')
-        lbpd.to_csv(lpath, header=True, sep=' ', index=True)
-        drifter_dict[dname]['list'] = lbpd
     return drifter_dict
 
 def parse_txt_files(drifter_data_dir, drifter_dict):
