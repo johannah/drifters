@@ -143,7 +143,7 @@ def load_data(fname, drifter_type, launch_datetime='2012-06-01 00:00:00', end_da
     """Input the name of the drifter file downloaded from the website. This function parses the two types of data,
     averaged measurements, M, and calibration measurements, C
     """
-    min_bat = 11.5
+    min_bat = 7
     dval = open(fname, 'r')
     #initialize battery voltage
     bvalue = -1
@@ -378,7 +378,7 @@ def parse_raw_files(drifter_data_dir, drifter_dict):
         dpath = os.path.join(drifter_data_dir, 'drifter_' + dname + '.txt')
         print("Loading %s and writing measured and calibration data files" %dname)
         drifter_type = drifter_dict[dname]['type']
-        mpd, cpd, lpd = load_data(dpath, drifter_type, drifter_dict[dname]['launch'], drifter_dict[dname]['end'])
+        mpd, cpd = load_data(dpath, drifter_type, drifter_dict[dname]['launch'], drifter_dict[dname]['end'])
         mpd = get_model_df(mpd)
         bpd = get_buoy_data(buoypd, mpd.index, mpd['lat'], mpd['lon'])
         # join buoy data with drifter data
